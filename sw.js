@@ -1,4 +1,4 @@
-const CACHE_NAME = 'w-weds-y-v1';
+const CACHE_NAME = 'x-weds-y-v1';
 const SHELL_FILES = [
   '/index.html',
   '/admin.html',
@@ -47,13 +47,13 @@ self.addEventListener('fetch', (event) => {
 });
 
 self.addEventListener('push', (event) => {
-  let data = { title: '💐 W weds Y', body: 'New announcement.' };
+  let data = { title: '💐 X weds Y', body: 'New announcement.' };
   try { if (event.data) data = event.data.json(); } catch (e) {}
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
       vibrate: [200, 100, 200],
-      tag: 'w-weds-y-announcement',
+      tag: 'x-weds-y-announcement',
       renotify: true
     })
   );

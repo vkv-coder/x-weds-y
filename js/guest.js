@@ -1,5 +1,5 @@
 // ==========================================
-// W weds Y - guest app
+// X weds Y - guest app
 // ==========================================
 
 let currentFamily = null;

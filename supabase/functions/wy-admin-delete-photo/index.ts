@@ -1,4 +1,4 @@
-// W weds Y - admin-only gallery photo deletion.
+// X weds Y - admin-only gallery photo deletion.
 // Guests can only INSERT into the wy-gallery storage bucket (open upload,
 // by design - any guest can add photos, everyone sees them). Deletion is
 // deliberately NOT exposed via a storage RLS policy (that would let any

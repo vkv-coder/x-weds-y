@@ -1,5 +1,5 @@
 // ==========================================
-// W weds Y - Supabase configuration
+// X weds Y - Supabase configuration
 // ==========================================
 
 const SUPABASE_URL = 'https://wrzpgultvahxbrgooibn.supabase.co';

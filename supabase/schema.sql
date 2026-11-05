@@ -1,5 +1,5 @@
 -- ==========================================
--- W weds Y - wedding guest PWA
+-- X weds Y - wedding guest PWA
 -- All tables prefixed wy_ (shared "rotry_event" Supabase project).
 -- Guests authenticate with a family code only (no Supabase Auth, no
 -- approval). Admin authenticates with a PIN -> short-lived session token.

@@ -1,5 +1,5 @@
 // ==========================================
-// W weds Y - admin panel
+// X weds Y - admin panel
 // ==========================================
 
 const ADMIN_TOKEN_KEY = 'wy_admin_token';
@@ -418,7 +418,7 @@ function exportTravelCSV(kind) {
   a.href = url;
   const { from, to } = travelFilterRange();
   const suffix = (from || to) ? `-${from || 'start'}_to_${to || 'end'}` : '';
-  a.download = `w-weds-y-${kind}s${suffix}.csv`;
+  a.download = `x-weds-y-${kind}s${suffix}.csv`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
