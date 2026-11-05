@@ -33,9 +33,10 @@ body {
 .screen { display: none; }
 .screen.active { display: block; }
 
-#login-screen, #admin-login-screen {
+#entry-screen {
   min-height: 100vh;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #7A1230 0%, #A32347 55%, #C9A227 100%);
@@ -50,6 +51,13 @@ body {
   max-width: 400px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.25);
 }
+
+.entry-toggle-bar { display: flex; gap: 8px; margin-bottom: 24px; }
+.entry-toggle-btn {
+  flex: 1; padding: 10px; border: none; border-radius: var(--radius);
+  background: #F3E9DC; color: var(--text-light); font-weight: 600; font-size: 13px; cursor: pointer;
+}
+.entry-toggle-btn.active { background: var(--primary); color: #fff; }
 
 .logo-area { text-align: center; margin-bottom: 28px; }
 .logo-icon { font-size: 48px; margin-bottom: 8px; }
@@ -133,12 +141,12 @@ body {
 .support-line { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
 .support-line a { color: var(--primary); }
 
-/* login-screen/admin-login-screen footers sit on the dark gradient, not the white card - need light text instead of the default muted/dark colors */
-#login-screen .app-footer, #admin-login-screen .app-footer { color: rgba(255,255,255,0.85); }
-#login-screen .support-line, #admin-login-screen .support-line { color: rgba(255,255,255,0.85); }
-#login-screen .support-line a, #admin-login-screen .support-line a,
-#login-screen .anyapps-badge, #admin-login-screen .anyapps-badge { color: #fff; }
-#login-screen .powered-by, #admin-login-screen .powered-by { color: rgba(255,255,255,0.7); }
+/* entry-screen footer sits on the dark gradient, not the white card - needs light text instead of the default muted/dark colors */
+#entry-screen .app-footer { color: rgba(255,255,255,0.85); }
+#entry-screen .support-line { color: rgba(255,255,255,0.85); }
+#entry-screen .support-line a,
+#entry-screen .anyapps-badge { color: #fff; }
+#entry-screen .powered-by { color: rgba(255,255,255,0.7); }
 .powered-by { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
 .anyapps-badge { color: var(--primary); font-weight: 700; text-decoration: none; }
 .anyapps-badge .accent { color: var(--accent); }

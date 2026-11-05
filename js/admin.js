@@ -21,8 +21,15 @@ async function adminLogin() {
 function adminLogout() {
   sessionStorage.removeItem(ADMIN_TOKEN_KEY);
   document.getElementById('admin-main-screen').style.display = 'none';
-  document.getElementById('admin-login-screen').style.display = 'flex';
+  document.getElementById('entry-screen').style.display = 'flex';
+  if (typeof showEntryMode === 'function') showEntryMode('admin');
   document.getElementById('admin-pin').value = '';
+}
+
+function goToGuestEntry() {
+  document.getElementById('admin-main-screen').style.display = 'none';
+  document.getElementById('entry-screen').style.display = 'flex';
+  if (typeof showEntryMode === 'function') showEntryMode('guest');
 }
 
 function adminToken() {
@@ -30,7 +37,9 @@ function adminToken() {
 }
 
 function enterAdminApp() {
-  document.getElementById('admin-login-screen').style.display = 'none';
+  document.getElementById('entry-screen').style.display = 'none';
+  const guestMain = document.getElementById('main-screen');
+  if (guestMain) guestMain.style.display = 'none';
   document.getElementById('admin-main-screen').style.display = 'block';
   goAdminTab('dashboard');
 }

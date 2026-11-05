@@ -11,24 +11,48 @@
 </head>
 <body>
 
-<!-- ========== LOGIN SCREEN ========== -->
-<div id="login-screen">
+<!-- ========== ENTRY SCREEN (guest or host, one URL) ========== -->
+<div id="entry-screen">
   <div class="login-box">
-    <div class="logo-area">
-      <div class="logo-icon">💐</div>
-      <h1>x-weds-y</h1>
-      <div class="subtitle">🎬 Live Demo — this is a sample wedding, not a real event</div>
+    <div class="entry-toggle-bar">
+      <button type="button" id="toggle-guest-btn" class="entry-toggle-btn active" onclick="showEntryMode('guest')">👪 I'm a Guest</button>
+      <button type="button" id="toggle-admin-btn" class="entry-toggle-btn" onclick="showEntryMode('admin')">🔐 I'm the Host</button>
     </div>
-    <div class="form-group">
-      <label>Family Code</label>
-      <input type="text" id="login-code" placeholder="try: demo1" autocapitalize="none" />
+
+    <div id="guest-entry-form">
+      <div class="logo-area">
+        <div class="logo-icon">💐</div>
+        <h1>x-weds-y</h1>
+        <div class="subtitle">🎬 Live Demo — this is a sample wedding, not a real event</div>
+      </div>
+      <div class="form-group">
+        <label>Family Code</label>
+        <input type="text" id="login-code" placeholder="try: demo1" autocapitalize="none" />
+      </div>
+      <button class="btn-primary" onclick="guestLogin()">Enter</button>
+      <div class="error-msg" id="login-error"></div>
+      <p style="text-align:center;margin-top:16px;font-size:12px;color:var(--text-muted);">
+        Try family codes <b>demo1</b> or <b>demo2</b> to explore the guest experience.<br>
+        Want this for your own wedding? <a href="mailto:info.anyapps@gmail.com">Get in touch</a>.
+      </p>
     </div>
-    <button class="btn-primary" onclick="guestLogin()">Enter</button>
-    <div class="error-msg" id="login-error"></div>
-    <p style="text-align:center;margin-top:16px;font-size:12px;color:var(--text-muted);">
-      Try family codes <b>demo1</b> or <b>demo2</b> to explore the guest experience.<br>
-      Want this for your own wedding? <a href="mailto:info.anyapps@gmail.com">Get in touch</a>.
-    </p>
+
+    <div id="admin-entry-form" style="display:none;">
+      <div class="logo-area">
+        <div class="logo-icon">🔐</div>
+        <h1>Host Admin</h1>
+        <div class="subtitle">🎬 x-weds-y (Live Demo)</div>
+      </div>
+      <div class="form-group">
+        <label>Admin PIN</label>
+        <input type="password" id="admin-pin" placeholder="try: demo2027" />
+      </div>
+      <button class="btn-primary" onclick="adminLogin()">Log In</button>
+      <div class="error-msg" id="admin-login-error"></div>
+      <p style="text-align:center;margin-top:16px;font-size:12px;color:var(--text-muted);">
+        Demo PIN: <b>demo2027</b> - feel free to add/edit/delete, this is sample data.
+      </p>
+    </div>
   </div>
   <div class="app-footer">
     <p class="support-line">Questions? <a href="mailto:info.anyapps@gmail.com">info.anyapps@gmail.com</a></p>
@@ -36,7 +60,7 @@
   </div>
 </div>
 
-<!-- ========== MAIN APP ========== -->
+<!-- ========== GUEST APP ========== -->
 <div id="main-screen" style="display:none;">
   <div class="app-header-sticky">
     <div class="topbar">
@@ -54,6 +78,25 @@
   </div>
 </div>
 
+<!-- ========== ADMIN APP ========== -->
+<div id="admin-main-screen" style="display:none;">
+  <div class="app-header-sticky">
+    <div class="topbar">
+      <span class="app-title">🔐 Host Admin</span>
+      <div class="topbar-right">
+        <button class="home-btn" onclick="goToGuestEntry()">Guest App</button>
+        <button class="btn-logout" onclick="adminLogout()">Log Out</button>
+      </div>
+    </div>
+    <div class="nav-tabs" id="admin-nav-tabs"></div>
+  </div>
+  <div class="page-content" id="admin-page-content"></div>
+  <div class="app-footer">
+    <p class="support-line">Questions? <a href="mailto:info.anyapps@gmail.com">info.anyapps@gmail.com</a></p>
+    <p class="powered-by">Powered by <a href="https://anyapps.in" target="_blank" rel="noopener" class="anyapps-badge">Any<span class="accent">Apps</span>.in</a></p>
+  </div>
+</div>
+
 <div id="modal-overlay" class="modal-overlay" style="display:none;">
   <div class="modal-box" id="modal-box"></div>
 </div>
@@ -61,10 +104,30 @@
 
 <script src="js/config.js"></script>
 <script src="js/guest.js"></script>
+<script src="js/admin.js"></script>
 <script>
+function showEntryMode(mode) {
+  if (mode === 'admin' && typeof adminToken === 'function' && adminToken()) {
+    enterAdminApp();
+    return;
+  }
+  const isGuest = mode === 'guest';
+  document.getElementById('guest-entry-form').style.display = isGuest ? 'block' : 'none';
+  document.getElementById('admin-entry-form').style.display = isGuest ? 'none' : 'block';
+  document.getElementById('toggle-guest-btn').classList.toggle('active', isGuest);
+  document.getElementById('toggle-admin-btn').classList.toggle('active', !isGuest);
+}
+
 document.getElementById('login-code').addEventListener('keydown', function(e) {
   if (e.key === 'Enter') guestLogin();
 });
+document.getElementById('admin-pin').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') adminLogin();
+});
+
+if (new URLSearchParams(location.search).get('mode') === 'admin') {
+  showEntryMode('admin');
+}
 </script>
 </body>
 </html>

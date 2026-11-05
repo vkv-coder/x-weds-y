@@ -26,12 +26,15 @@ function guestLogout() {
   localStorage.removeItem(CODE_KEY);
   currentFamily = null;
   document.getElementById('main-screen').style.display = 'none';
-  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('entry-screen').style.display = 'flex';
+  if (typeof showEntryMode === 'function') showEntryMode('guest');
   document.getElementById('login-code').value = '';
 }
 
 function enterApp() {
-  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('entry-screen').style.display = 'none';
+  const adminMain = document.getElementById('admin-main-screen');
+  if (adminMain) adminMain.style.display = 'none';
   document.getElementById('main-screen').style.display = 'block';
   document.getElementById('family-name-badge').textContent = currentFamily.family_name;
   registerServiceWorker();
