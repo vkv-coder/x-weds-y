@@ -1,6 +1,6 @@
 {
-  "name": "X weds Y (Demo)",
-  "short_name": "X-weds-Y",
+  "name": "x-weds-y (Demo)",
+  "short_name": "x-weds-y",
   "description": "Live demo of a wedding guest app - itinerary, travel details, rooms, gallery.",
   "start_url": "/index.html",
   "scope": "/",

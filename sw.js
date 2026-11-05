@@ -47,7 +47,7 @@ self.addEventListener('fetch', (event) => {
 });
 
 self.addEventListener('push', (event) => {
-  let data = { title: '💐 X weds Y', body: 'New announcement.' };
+  let data = { title: '💐 x-weds-y', body: 'New announcement.' };
   try { if (event.data) data = event.data.json(); } catch (e) {}
   event.waitUntil(
     self.registration.showNotification(data.title, {

@@ -1,5 +1,5 @@
 // ==========================================
-// X weds Y - admin panel
+// x-weds-y - admin panel
 // ==========================================
 
 const ADMIN_TOKEN_KEY = 'wy_admin_token';

@@ -1,4 +1,4 @@
-// X weds Y - sends a Web Push "buzz" to every guest device
+// x-weds-y - sends a Web Push "buzz" to every guest device
 // subscribed, when the admin posts an announcement. Called directly by the
 // admin panel right after wy_admin_post_announcement succeeds (not a cron
 // job - there's no scheduled trigger here, this one is on-demand).
