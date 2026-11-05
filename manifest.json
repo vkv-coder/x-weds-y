@@ -1,0 +1,14 @@
+{
+  "name": "W weds Y (Demo)",
+  "short_name": "W-weds-Y",
+  "description": "Live demo of a wedding guest app - itinerary, travel details, rooms, gallery.",
+  "start_url": "/index.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#FFF8EE",
+  "theme_color": "#7A1230",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icons/icon.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

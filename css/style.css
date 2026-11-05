@@ -1,0 +1,163 @@
+/* ==========================================
+   W weds Y - stylesheet
+   Theme: maroon / gold, wedding
+   ========================================== */
+
+:root {
+  --primary: #7A1230;
+  --primary-light: #A32347;
+  --accent: #C9A227;
+  --accent-light: #E0C25C;
+  --bg: #FFF8EE;
+  --bg-card: #FFFFFF;
+  --text: #2B1A1E;
+  --text-light: #5A4047;
+  --text-muted: #8C7680;
+  --border: #EEDFC8;
+  --success: #2E7D32;
+  --danger: #C62828;
+  --warning: #B8860B;
+  --shadow: 0 2px 12px rgba(122,18,48,0.12);
+  --radius: 10px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+.screen { display: none; }
+.screen.active { display: block; }
+
+#login-screen, #admin-login-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #7A1230 0%, #A32347 55%, #C9A227 100%);
+  padding: 16px;
+}
+
+.login-box {
+  background: white;
+  border-radius: 16px;
+  padding: 40px 32px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+}
+
+.logo-area { text-align: center; margin-bottom: 28px; }
+.logo-icon { font-size: 48px; margin-bottom: 8px; }
+.logo-area h1 { color: var(--primary); font-size: 22px; font-weight: 700; }
+.logo-area .subtitle { color: var(--text-muted); font-size: 13px; margin-top: 4px; }
+
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-size: 13px; font-weight: 600; color: var(--text-light); margin-bottom: 6px; }
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%; padding: 11px 12px; border: 1px solid var(--border); border-radius: var(--radius);
+  font-size: 15px; background: #fff; color: var(--text);
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: 2px solid var(--accent); }
+.form-hint { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+
+.btn-primary, .btn-secondary, .btn-danger {
+  display: inline-block; width: 100%; padding: 12px; border: none; border-radius: var(--radius);
+  font-size: 15px; font-weight: 600; cursor: pointer; text-align: center;
+}
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-light); }
+.btn-secondary { background: #F3E9DC; color: var(--primary); }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-sm { width: auto; padding: 6px 14px; font-size: 13px; }
+
+.error-msg { color: var(--danger); font-size: 13px; margin-top: 10px; min-height: 1px; }
+
+/* ========== TOPBAR + NAV TABS ========== */
+.app-header-sticky { position: sticky; top: 0; z-index: 100; }
+
+.topbar {
+  background: var(--primary); color: white; display: flex; align-items: center;
+  justify-content: space-between; padding: 12px 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+.app-title { font-size: 17px; font-weight: 700; }
+.topbar-right { display: flex; align-items: center; gap: 10px; }
+.btn-logout { background: rgba(255,255,255,0.15); color: #fff; border: none; border-radius: 8px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+
+.nav-tabs { display: flex; background: var(--primary-light); overflow-x: auto; }
+.nav-tab { flex: 1; text-align: center; padding: 12px 8px; font-size: 13px; color: rgba(255,255,255,0.75); cursor: pointer; white-space: nowrap; }
+.nav-tab.active { color: #fff; font-weight: 700; border-bottom: 3px solid var(--accent); }
+
+.page-content { padding: 16px; max-width: 760px; margin: 0 auto; }
+
+.card { background: var(--bg-card); border-radius: var(--radius); padding: 18px; margin-bottom: 14px; box-shadow: var(--shadow); }
+.card-title { font-size: 16px; font-weight: 700; color: var(--primary); border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 12px; }
+.section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.section-header h3 { font-size: 15px; color: var(--primary); }
+
+.empty-state { text-align: center; padding: 24px 8px; color: var(--text-muted); }
+
+.member-row { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin-bottom: 10px; }
+.member-name { font-weight: 700; color: var(--text); }
+.room-badge { display: inline-block; background: #F3E9DC; color: var(--primary); font-weight: 700; font-size: 13px; padding: 3px 10px; border-radius: 20px; margin-top: 4px; }
+
+.itinerary-item { border-left: 4px solid var(--accent); padding: 10px 14px; margin-bottom: 12px; background: #FFFDF8; border-radius: 0 var(--radius) var(--radius) 0; }
+.itinerary-item .ev-name { font-weight: 700; color: var(--primary); font-size: 15px; }
+.itinerary-item .ev-meta { font-size: 13px; color: var(--text-light); margin-top: 4px; }
+
+.announcement-item { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin-bottom: 10px; background: #FFFDF8; }
+.announcement-item .an-title { font-weight: 700; color: var(--primary); }
+.announcement-item .an-time { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+.gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+.gallery-grid img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; cursor: pointer; }
+
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--text); color: #fff;
+  padding: 10px 18px; border-radius: 20px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity 0.3s; z-index: 1000; }
+.toast.show { opacity: 1; }
+.toast.error { background: var(--danger); }
+
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 900; padding: 16px; }
+.modal-box { background: #fff; border-radius: var(--radius); padding: 24px; max-width: 480px; width: 100%; max-height: 85vh; overflow-y: auto; }
+.modal-title { font-size: 17px; font-weight: 700; color: var(--primary); margin-bottom: 16px; }
+.modal-actions { display: flex; gap: 10px; margin-top: 16px; }
+
+.home-btn { background: rgba(255,255,255,0.15); color: #fff; border: none; border-radius: 8px; padding: 6px 10px; font-size: 13px; cursor: pointer; margin-right: 6px; }
+
+.app-footer { text-align: center; padding: 20px 16px 30px; max-width: 760px; margin: 0 auto; }
+.footer-links a { color: var(--primary); font-size: 12px; margin: 0 6px; }
+.support-line { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+.support-line a { color: var(--primary); }
+
+/* login-screen/admin-login-screen footers sit on the dark gradient, not the white card - need light text instead of the default muted/dark colors */
+#login-screen .app-footer, #admin-login-screen .app-footer { color: rgba(255,255,255,0.85); }
+#login-screen .support-line, #admin-login-screen .support-line { color: rgba(255,255,255,0.85); }
+#login-screen .support-line a, #admin-login-screen .support-line a,
+#login-screen .anyapps-badge, #admin-login-screen .anyapps-badge { color: #fff; }
+#login-screen .powered-by, #admin-login-screen .powered-by { color: rgba(255,255,255,0.7); }
+.powered-by { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
+.anyapps-badge { color: var(--primary); font-weight: 700; text-decoration: none; }
+.anyapps-badge .accent { color: var(--accent); }
+
+@media (max-width: 420px) {
+  .login-box { padding: 28px 20px; }
+}
+
+/* ========== DASHBOARD TILES ========== */
+.dash-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px; }
+.dash-tile {
+  border-radius: var(--radius); padding: 22px 14px; text-align: center; cursor: pointer;
+  color: #fff; font-weight: 700; font-size: 15px; box-shadow: var(--shadow); transition: transform 0.15s;
+}
+.dash-tile:hover { transform: translateY(-2px); }
+.dash-tile .dash-icon { font-size: 28px; display: block; margin-bottom: 8px; }
+.dash-tile-1 { background: linear-gradient(135deg, #7A1230, #A32347); }
+.dash-tile-2 { background: linear-gradient(135deg, #B8860B, #E0C25C); }
+.dash-tile-3 { background: linear-gradient(135deg, #0F6E6E, #3FB6B6); }
+.dash-tile-4 { background: linear-gradient(135deg, #1C5A8A, #3F8FC6); }
+.dash-tile-5 { background: linear-gradient(135deg, #3E7D32, #6EBF5E); }
+.dash-tile-6 { background: linear-gradient(135deg, #8C4A1B, #C97A3F); }

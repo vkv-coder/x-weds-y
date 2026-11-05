@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>W weds Y (Demo)</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#7A1230">
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+
+<!-- ========== LOGIN SCREEN ========== -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="logo-area">
+      <div class="logo-icon">💐</div>
+      <h1>W weds Y</h1>
+      <div class="subtitle">🎬 Live Demo — this is a sample wedding, not a real event</div>
+    </div>
+    <div class="form-group">
+      <label>Family Code</label>
+      <input type="text" id="login-code" placeholder="try: demo1" autocapitalize="none" />
+    </div>
+    <button class="btn-primary" onclick="guestLogin()">Enter</button>
+    <div class="error-msg" id="login-error"></div>
+    <p style="text-align:center;margin-top:16px;font-size:12px;color:var(--text-muted);">
+      Try family codes <b>demo1</b> or <b>demo2</b> to explore the guest experience.<br>
+      Want this for your own wedding? <a href="mailto:info.anyapps@gmail.com">Get in touch</a>.
+    </p>
+  </div>
+  <div class="app-footer">
+    <p class="support-line">Questions? <a href="mailto:info.anyapps@gmail.com">info.anyapps@gmail.com</a></p>
+    <p class="powered-by">Powered by <a href="https://anyapps.in" target="_blank" rel="noopener" class="anyapps-badge">Any<span class="accent">Apps</span>.in</a></p>
+  </div>
+</div>
+
+<!-- ========== MAIN APP ========== -->
+<div id="main-screen" style="display:none;">
+  <div class="app-header-sticky">
+    <div class="topbar">
+      <span class="app-title">💐 <span id="family-name-badge"></span></span>
+      <div class="topbar-right">
+        <button class="btn-logout" onclick="guestLogout()">Switch Code</button>
+      </div>
+    </div>
+    <div class="nav-tabs" id="nav-tabs"></div>
+  </div>
+  <div class="page-content" id="page-content"></div>
+  <div class="app-footer">
+    <p class="support-line">Questions? <a href="mailto:info.anyapps@gmail.com">info.anyapps@gmail.com</a></p>
+    <p class="powered-by">Powered by <a href="https://anyapps.in" target="_blank" rel="noopener" class="anyapps-badge">Any<span class="accent">Apps</span>.in</a></p>
+  </div>
+</div>
+
+<div id="modal-overlay" class="modal-overlay" style="display:none;">
+  <div class="modal-box" id="modal-box"></div>
+</div>
+<div id="toast" class="toast"></div>
+
+<script src="js/config.js"></script>
+<script src="js/guest.js"></script>
+<script>
+document.getElementById('login-code').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') guestLogin();
+});
+</script>
+</body>
+</html>
