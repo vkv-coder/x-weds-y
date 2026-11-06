@@ -115,6 +115,7 @@ async function renderFamiliesTab(container) {
   container.innerHTML = `
     <div class="card">
       <div class="section-header"><h3>Families</h3><button class="btn-primary btn-sm" onclick="openAddFamilyModal()">+ Add Family</button></div>
+      <div class="form-group"><input type="text" id="family-search" placeholder="Search by family name, code (e.g. v001), or room no..." oninput="renderFamiliesList()"></div>
       <div id="families-list">Loading...</div>
     </div>
   `;
@@ -126,12 +127,39 @@ async function loadFamilies() {
   const listEl = document.getElementById('families-list');
   if (error) { listEl.innerHTML = `<div class="error-msg">${error.message}</div>`; return; }
   adminFamilies = data || [];
-  if (adminFamilies.length === 0) { listEl.innerHTML = `<div class="empty-state"><p>No families added yet.</p></div>`; return; }
-  listEl.innerHTML = adminFamilies.map(f => `
+  renderFamiliesList();
+}
+
+function renderFamiliesList() {
+  const listEl = document.getElementById('families-list');
+  if (!listEl) return;
+  const query = (document.getElementById('family-search').value || '').trim().toLowerCase();
+  let families = adminFamilies;
+  if (query) {
+    families = families.filter(f =>
+      f.family_name.toLowerCase().includes(query) ||
+      f.code.toLowerCase().includes(query) ||
+      (f.members || []).some(m => m.name.toLowerCase().includes(query) || (m.room_no && m.room_no.toLowerCase().includes(query)))
+    );
+  }
+  if (families.length === 0) { listEl.innerHTML = `<div class="empty-state"><p>${adminFamilies.length === 0 ? 'No families added yet.' : 'No matching families.'}</p></div>`; return; }
+  listEl.innerHTML = families.map(f => `
     <div class="member-row">
       <div class="section-header">
         <div class="member-name">${escapeHtml(f.family_name)} <span class="form-hint">(code: ${escapeHtml(f.code)})</span></div>
         <button class="btn-danger btn-sm" onclick="deleteFamily('${f.code}')">Delete</button>
+      </div>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
+        <div class="form-hint" style="margin-bottom:4px;">🏨 Stay (hotel/accommodation)</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <input type="text" placeholder="Stay place name" value="${escapeHtml(f.stay_place_name || '')}" style="flex:1;min-width:140px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;" id="stay-name-${f.code}">
+          <input type="url" placeholder="Google Maps link" value="${escapeHtml(f.stay_map_link || '')}" style="flex:1;min-width:160px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;" id="stay-link-${f.code}">
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px;">
+          <input type="text" placeholder="Coordinator name" value="${escapeHtml(f.stay_coordinator_name || '')}" style="flex:1;min-width:140px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;" id="stay-coord-name-${f.code}">
+          <input type="tel" placeholder="Coordinator phone" value="${escapeHtml(f.stay_coordinator_phone || '')}" style="flex:1;min-width:140px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;" id="stay-coord-phone-${f.code}">
+          <button class="btn-secondary btn-sm" onclick="saveFamilyStay('${f.code}')">Save Stay</button>
+        </div>
       </div>
       ${(f.members || []).map(m => `
         <div style="margin-top:8px;">
@@ -201,6 +229,19 @@ async function deleteMember(memberId, code) {
   const { error } = await db.rpc('wy_admin_delete_member', { p_token: adminToken(), p_member_id: memberId });
   if (error) { showToast(error.message, 'error'); return; }
   loadFamilies();
+}
+
+async function saveFamilyStay(code) {
+  const name = document.getElementById(`stay-name-${code}`).value.trim() || null;
+  const link = document.getElementById(`stay-link-${code}`).value.trim() || null;
+  const coordName = document.getElementById(`stay-coord-name-${code}`).value.trim() || null;
+  const coordPhone = document.getElementById(`stay-coord-phone-${code}`).value.trim() || null;
+  const { error } = await db.rpc('wy_admin_set_family_stay', {
+    p_token: adminToken(), p_code: code, p_stay_place_name: name, p_stay_map_link: link,
+    p_stay_coordinator_name: coordName, p_stay_coordinator_phone: coordPhone
+  });
+  if (error) { showToast(error.message, 'error'); return; }
+  showToast('✅ Stay saved');
 }
 
 async function saveRoom(memberId) {
@@ -298,13 +339,25 @@ let _currentDepartures = [];
 async function renderTravelTab(container) {
   container.innerHTML = `
     <div class="card">
-      <div class="card-title">Filter by Date</div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
-        <div class="form-group" style="margin-bottom:0;flex:1;min-width:140px;"><label>From</label><input type="date" id="travel-from" oninput="renderTravelLists()"></div>
-        <div class="form-group" style="margin-bottom:0;flex:1;min-width:140px;"><label>To</label><input type="date" id="travel-to" oninput="renderTravelLists()"></div>
-        <button class="btn-secondary btn-sm" onclick="clearTravelFilter()">Clear</button>
+      <div class="card-title">How to Reach (shown to guests)</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <div class="form-group" style="flex:1;min-width:140px;"><label>Nearest Airport</label><input type="text" id="note-airport" placeholder="e.g. Indore"></div>
+        <div class="form-group" style="flex:1;min-width:200px;"><label>Road Journey Note</label><input type="text" id="note-road-time" placeholder="e.g. 5 hrs 30 min road journey from Indore to Mandsaur"></div>
       </div>
-      <div class="form-hint" style="margin-top:8px;">Tip: set From/To to the same date to see just one day - e.g. the day before the wedding.</div>
+      <div class="form-group"><label>Airport → Venue (Google Maps link)</label><input type="url" id="note-airport-venue" placeholder="https://maps.app.goo.gl/..."></div>
+      <div class="form-group"><label>Airport → Stay (only if different from venue)</label><input type="url" id="note-airport-stay" placeholder="https://maps.app.goo.gl/..."></div>
+      <div class="form-group"><label>Nearest Railway Station</label><input type="text" id="note-railway" placeholder="e.g. Mandsaur Railway Station"></div>
+      <div class="form-group"><label>Railway Station → Venue (Google Maps link)</label><input type="url" id="note-railway-venue" placeholder="https://maps.app.goo.gl/..."></div>
+      <div class="form-group"><label>Railway Station → Stay (only if different from venue)</label><input type="url" id="note-railway-stay" placeholder="https://maps.app.goo.gl/..."></div>
+      <button class="btn-primary btn-sm" onclick="saveTravelNote()">Save Note</button>
+      <div class="error-msg" id="note-error"></div>
+      <div class="section-header" style="margin-top:14px;"><h3>Train Routes</h3><button class="btn-secondary btn-sm" onclick="openTravelRouteModal(null)">+ Add Route</button></div>
+      <div id="travel-routes-list">Loading...</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Filter by Date</div>
+      <div id="travel-date-chips" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+      <div class="form-hint" style="margin-top:8px;">Pick a day to see who's arriving/departing then - covers one day before to one day after the function dates. Choose "All" to see or export everyone.</div>
     </div>
     <div class="card">
       <div class="section-header"><h3>Arrivals</h3><button class="btn-primary btn-sm" onclick="exportTravelCSV('arrival')">⬇️ Export to Excel</button></div>
@@ -318,25 +371,162 @@ async function renderTravelTab(container) {
   const { data, error } = await db.rpc('wy_admin_list_members', { p_token: adminToken() });
   if (error) { document.getElementById('arrivals-list').innerHTML = `<div class="error-msg">${error.message}</div>`; return; }
   adminMembers = data || [];
+  await loadTravelDateChips();
+  renderTravelLists();
+  loadTravelNote();
+  loadTravelRoutes();
+}
+
+let _travelDateOptions = [];
+let _travelSelectedDate = null; // null = All
+
+// Pure UTC arithmetic - never round-trip through local-timezone Date
+// parsing here. Mixing local-midnight parsing with toISOString() (always
+// UTC) is a fixed point for positive UTC offsets (e.g. IST, UTC+5:30):
+// advancing one local day and reading back the UTC date string yields the
+// SAME string every time, so the chip-range loop below never terminated
+// for anyone in India - froze the Travel tab on every load.
+function addDaysIso(isoDate, n) {
+  const [y, m, d] = isoDate.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + n);
+  return dt.toISOString().slice(0, 10);
+}
+
+function travelChipLabel(iso) {
+  return new Date(iso + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+}
+
+async function loadTravelDateChips() {
+  const { data } = await db.from('wy_itinerary').select('event_date');
+  const dates = (data || []).map(e => e.event_date).filter(Boolean).sort();
+  _travelDateOptions = [];
+  if (dates.length > 0) {
+    const start = addDaysIso(dates[0], -1);
+    const end = addDaysIso(dates[dates.length - 1], 1);
+    let cur = start;
+    let guard = 0;
+    while (cur <= end && guard < 90) {
+      _travelDateOptions.push(cur);
+      cur = addDaysIso(cur, 1);
+      guard++;
+    }
+  }
+  _travelSelectedDate = null;
+  renderTravelDateChips();
+}
+
+function renderTravelDateChips() {
+  const el = document.getElementById('travel-date-chips');
+  if (!el) return;
+  const chip = (val, label) =>
+    `<button class="btn-sm ${_travelSelectedDate === val ? 'btn-primary' : 'btn-secondary'}" onclick="selectTravelDate(${val === null ? 'null' : `'${val}'`})">${label}</button>`;
+  el.innerHTML = chip(null, 'All') + _travelDateOptions.map(d => chip(d, travelChipLabel(d))).join('');
+}
+
+function selectTravelDate(d) {
+  _travelSelectedDate = d;
+  renderTravelDateChips();
   renderTravelLists();
 }
 
-function clearTravelFilter() {
-  document.getElementById('travel-from').value = '';
-  document.getElementById('travel-to').value = '';
-  renderTravelLists();
+async function loadTravelNote() {
+  const { data } = await db.from('wy_travel_note').select('*').eq('id', 1).maybeSingle();
+  if (!data) return;
+  document.getElementById('note-airport').value = data.airport_name || '';
+  document.getElementById('note-road-time').value = data.road_time || '';
+  document.getElementById('note-airport-venue').value = data.airport_to_venue_link || '';
+  document.getElementById('note-airport-stay').value = data.airport_to_stay_link || '';
+  document.getElementById('note-railway').value = data.railway_station_name || '';
+  document.getElementById('note-railway-venue').value = data.railway_to_venue_link || '';
+  document.getElementById('note-railway-stay').value = data.railway_to_stay_link || '';
+}
+
+async function saveTravelNote() {
+  const errEl = document.getElementById('note-error');
+  errEl.textContent = '';
+  const { error } = await db.rpc('wy_admin_set_travel_note', {
+    p_token: adminToken(),
+    p_airport_name: document.getElementById('note-airport').value.trim() || null,
+    p_road_time: document.getElementById('note-road-time').value.trim() || null,
+    p_railway_station_name: document.getElementById('note-railway').value.trim() || null,
+    p_airport_to_venue_link: document.getElementById('note-airport-venue').value.trim() || null,
+    p_airport_to_stay_link: document.getElementById('note-airport-stay').value.trim() || null,
+    p_railway_to_venue_link: document.getElementById('note-railway-venue').value.trim() || null,
+    p_railway_to_stay_link: document.getElementById('note-railway-stay').value.trim() || null
+  });
+  if (error) { errEl.textContent = error.message; return; }
+  showToast('✅ Saved');
+}
+
+let adminTravelRoutes = [];
+
+async function loadTravelRoutes() {
+  const { data, error } = await db.from('wy_travel_routes').select('*').order('sort_order');
+  const listEl = document.getElementById('travel-routes-list');
+  adminTravelRoutes = data || [];
+  if (error || !data || data.length === 0) { listEl.innerHTML = `<div class="empty-state"><p>No routes added yet.</p></div>`; return; }
+  listEl.innerHTML = data.map(r => `
+    <div class="itinerary-item">
+      <div class="section-header">
+        <div class="ev-name">🚉 ${escapeHtml(r.from_place)}</div>
+        <div>
+          <button class="btn-secondary btn-sm" onclick="openTravelRouteModalById('${r.id}')">Edit</button>
+          <button class="btn-danger btn-sm" onclick="deleteTravelRoute('${r.id}')">Delete</button>
+        </div>
+      </div>
+      <div class="ev-meta">${escapeHtml(r.train_no || '')}</div>
+    </div>
+  `).join('');
+}
+
+function openTravelRouteModalById(id) {
+  openTravelRouteModal(adminTravelRoutes.find(r => r.id === id));
+}
+
+function openTravelRouteModal(r) {
+  r = r || {};
+  openModal(`
+    <div class="modal-title">${r.id ? 'Edit' : 'Add'} Train Route</div>
+    <div class="form-group"><label>From (station/city)</label><input type="text" id="route-from" value="${escapeHtml(r.from_place || '')}"></div>
+    <div class="form-group"><label>Train Number(s)</label><input type="text" id="route-train-no" placeholder="e.g. 19316 or 22901 / 20667" value="${escapeHtml(r.train_no || '')}"></div>
+    <div class="error-msg" id="route-error"></div>
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="saveTravelRoute('${r.id || ''}')">Save</button>
+      <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+    </div>
+  `);
+}
+
+async function saveTravelRoute(id) {
+  const errEl = document.getElementById('route-error');
+  const fromPlace = document.getElementById('route-from').value.trim();
+  if (!fromPlace) { errEl.textContent = 'From is required.'; return; }
+  const { error } = await db.rpc('wy_admin_upsert_travel_route', {
+    p_token: adminToken(), p_id: id || null,
+    p_from_place: fromPlace,
+    p_train_no: document.getElementById('route-train-no').value.trim() || null,
+    p_sort_order: 0
+  });
+  if (error) { errEl.textContent = error.message; return; }
+  closeModal();
+  showToast('✅ Saved');
+  loadTravelRoutes();
+}
+
+async function deleteTravelRoute(id) {
+  if (!confirm('Delete this train route?')) return;
+  const { error } = await db.rpc('wy_admin_delete_travel_route', { p_token: adminToken(), p_id: id });
+  if (error) { showToast(error.message, 'error'); return; }
+  loadTravelRoutes();
 }
 
 function travelFilterRange() {
-  return {
-    from: document.getElementById('travel-from').value || null,
-    to: document.getElementById('travel-to').value || null
-  };
+  return { from: _travelSelectedDate, to: _travelSelectedDate };
 }
 
 function travelHasFilter() {
-  const { from, to } = travelFilterRange();
-  return !!(from || to);
+  return !!_travelSelectedDate;
 }
 
 function filterByDate(members, dateField) {
@@ -426,7 +616,7 @@ function exportTravelCSV(kind) {
   const a = document.createElement('a');
   a.href = url;
   const { from, to } = travelFilterRange();
-  const suffix = (from || to) ? `-${from || 'start'}_to_${to || 'end'}` : '';
+  const suffix = from && from === to ? `-${from}` : (from || to) ? `-${from || 'start'}_to_${to || 'end'}` : '';
   a.download = `x-weds-y-${kind}s${suffix}.csv`;
   document.body.appendChild(a);
   a.click();
@@ -438,17 +628,90 @@ function exportTravelCSV(kind) {
 async function renderItineraryTab(container) {
   container.innerHTML = `
     <div class="card">
-      <div class="section-header"><h3>Itinerary</h3><button class="btn-primary btn-sm" onclick="openItineraryModal(null)">+ Add Event</button></div>
+      <div class="section-header"><h3>Events</h3><button class="btn-primary btn-sm" onclick="openItineraryModal(null)">+ Add Event</button></div>
       <div id="itinerary-admin-list">Loading...</div>
+    </div>
+    <div class="card">
+      <div class="section-header"><h3>Meals</h3><button class="btn-primary btn-sm" onclick="openMealModal(null)">+ Add Meal</button></div>
+      <div id="meals-admin-list">Loading...</div>
     </div>
   `;
   await loadItineraryAdmin();
+  await loadMealsAdmin();
+}
+
+let adminMealsCache = [];
+
+async function loadMealsAdmin() {
+  const { data, error } = await db.from('wy_meals').select('*').order('meal_date').order('meal_time');
+  const listEl = document.getElementById('meals-admin-list');
+  adminMealsCache = data || [];
+  if (error || !data || data.length === 0) { listEl.innerHTML = `<div class="empty-state"><p>No meals added yet.</p></div>`; return; }
+  listEl.innerHTML = data.map(m => `
+    <div class="itinerary-item">
+      <div class="section-header">
+        <div class="ev-name">🍽️ ${escapeHtml(m.meal_name)}</div>
+        <div>
+          <button class="btn-secondary btn-sm" onclick="openMealModalById('${m.id}')">Edit</button>
+          <button class="btn-danger btn-sm" onclick="deleteMeal('${m.id}')">Delete</button>
+        </div>
+      </div>
+      <div class="ev-meta">${m.meal_date ? formatDate(m.meal_date) : ''} ${m.meal_time ? formatTime(m.meal_time) : ''}</div>
+      <div class="ev-meta">${escapeHtml(m.venue || '')}</div>
+      ${m.details ? `<div class="ev-meta">${escapeHtml(m.details)}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+function openMealModalById(id) {
+  openMealModal(adminMealsCache.find(m => m.id === id));
+}
+
+function openMealModal(m) {
+  m = m || {};
+  openModal(`
+    <div class="modal-title">${m.id ? 'Edit' : 'Add'} Meal</div>
+    <div class="form-group"><label>Meal Name</label><input type="text" id="meal-name" placeholder="e.g. Breakfast, Lunch, High Tea, Dinner" value="${escapeHtml(m.meal_name || '')}"></div>
+    <div class="form-group"><label>Date</label><input type="date" id="meal-date" value="${m.meal_date || ''}"></div>
+    <div class="form-group"><label>Time</label><input type="time" id="meal-time" value="${m.meal_time || ''}"></div>
+    <div class="form-group"><label>Venue</label><input type="text" id="meal-venue" value="${escapeHtml(m.venue || '')}"></div>
+    <div class="form-group"><label>Details</label><textarea id="meal-details" rows="2" placeholder="e.g. Gujarati thali buffet">${escapeHtml(m.details || '')}</textarea></div>
+    <div class="error-msg" id="meal-error"></div>
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="saveMeal('${m.id || ''}')">Save</button>
+      <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+    </div>
+  `);
+}
+
+async function saveMeal(id) {
+  const errEl = document.getElementById('meal-error');
+  const { error } = await db.rpc('wy_admin_upsert_meal', {
+    p_token: adminToken(), p_id: id || null,
+    p_meal_name: document.getElementById('meal-name').value.trim(),
+    p_meal_date: document.getElementById('meal-date').value || null,
+    p_meal_time: document.getElementById('meal-time').value || null,
+    p_venue: document.getElementById('meal-venue').value.trim() || null,
+    p_details: document.getElementById('meal-details').value.trim() || null,
+    p_sort_order: 0
+  });
+  if (error) { errEl.textContent = error.message; return; }
+  closeModal();
+  showToast('✅ Saved');
+  loadMealsAdmin();
+}
+
+async function deleteMeal(id) {
+  if (!confirm('Delete this meal?')) return;
+  const { error } = await db.rpc('wy_admin_delete_meal', { p_token: adminToken(), p_id: id });
+  if (error) { showToast(error.message, 'error'); return; }
+  loadMealsAdmin();
 }
 
 let adminItineraryCache = [];
 
 async function loadItineraryAdmin() {
-  const { data, error } = await db.from('wy_itinerary').select('*').order('sort_order').order('event_date');
+  const { data, error } = await db.from('wy_itinerary').select('*').order('event_date').order('start_time');
   const listEl = document.getElementById('itinerary-admin-list');
   adminItineraryCache = data || [];
   if (error || !data || data.length === 0) { listEl.innerHTML = `<div class="empty-state"><p>No events yet.</p></div>`; return; }
@@ -463,6 +726,8 @@ async function loadItineraryAdmin() {
       </div>
       <div class="ev-meta">${ev.event_date ? formatDate(ev.event_date) : ''} ${ev.start_time ? formatTime(ev.start_time) : ''}</div>
       <div class="ev-meta">${escapeHtml(ev.venue || '')}</div>
+      ${ev.map_link ? `<div class="ev-meta">🗺️ <a href="${escapeHtml(ev.map_link)}" target="_blank" rel="noopener">Map link set</a></div>` : ''}
+      ${ev.coordinator_name || ev.coordinator_phone ? `<div class="ev-meta">📞 ${escapeHtml(ev.coordinator_name || 'Coordinator')}${ev.coordinator_phone ? ' - ' + escapeHtml(ev.coordinator_phone) : ''}</div>` : ''}
     </div>
   `).join('');
 }
@@ -480,6 +745,9 @@ function openItineraryModal(ev) {
     <div class="form-group"><label>Start Time</label><input type="time" id="ev-start" value="${ev.start_time || ''}"></div>
     <div class="form-group"><label>End Time</label><input type="time" id="ev-end" value="${ev.end_time || ''}"></div>
     <div class="form-group"><label>Venue</label><input type="text" id="ev-venue" value="${escapeHtml(ev.venue || '')}"></div>
+    <div class="form-group"><label>Google Maps Link</label><input type="url" id="ev-map-link" placeholder="https://maps.app.goo.gl/..." value="${escapeHtml(ev.map_link || '')}"></div>
+    <div class="form-group"><label>Coordinator Name</label><input type="text" id="ev-coord-name" value="${escapeHtml(ev.coordinator_name || '')}"></div>
+    <div class="form-group"><label>Coordinator Phone</label><input type="tel" id="ev-coord-phone" value="${escapeHtml(ev.coordinator_phone || '')}"></div>
     <div class="form-group"><label>Menu</label><textarea id="ev-menu" rows="2">${escapeHtml(ev.menu || '')}</textarea></div>
     <div class="form-group"><label>Dress Code</label><input type="text" id="ev-dress" value="${escapeHtml(ev.dress_code || '')}"></div>
     <div class="error-msg" id="ev-error"></div>
@@ -501,7 +769,10 @@ async function saveItinerary(id) {
     p_venue: document.getElementById('ev-venue').value.trim() || null,
     p_menu: document.getElementById('ev-menu').value.trim() || null,
     p_dress_code: document.getElementById('ev-dress').value.trim() || null,
-    p_sort_order: 0
+    p_sort_order: 0,
+    p_map_link: document.getElementById('ev-map-link').value.trim() || null,
+    p_coordinator_name: document.getElementById('ev-coord-name').value.trim() || null,
+    p_coordinator_phone: document.getElementById('ev-coord-phone').value.trim() || null
   });
   if (error) { errEl.textContent = error.message; return; }
   closeModal();

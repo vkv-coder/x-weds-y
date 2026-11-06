@@ -1,4 +1,4 @@
-const CACHE_NAME = 'x-weds-y-v1';
+const CACHE_NAME = 'x-weds-y-v2';
 const SHELL_FILES = [
   '/index.html',
   '/admin.html',

@@ -12,7 +12,11 @@
 create table if not exists wy_families (
   code text primary key,
   family_name text not null,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  stay_place_name text,
+  stay_map_link text,
+  stay_coordinator_name text,
+  stay_coordinator_phone text
 );
 
 create table if not exists wy_members (
@@ -94,6 +98,40 @@ create table if not exists wy_itinerary (
   menu text,
   dress_code text,
   sort_order int not null default 0,
+  created_at timestamptz not null default now(),
+  map_link text,
+  coordinator_name text,
+  coordinator_phone text
+);
+
+create table if not exists wy_travel_routes (
+  id uuid primary key default gen_random_uuid(),
+  from_place text not null,
+  train_no text,
+  sort_order int not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists wy_travel_note (
+  id int primary key default 1,
+  airport_name text,
+  road_time text,
+  railway_station_name text,
+  airport_to_venue_link text,
+  airport_to_stay_link text,
+  railway_to_venue_link text,
+  railway_to_stay_link text,
+  constraint wy_travel_note_single_row check (id = 1)
+);
+
+create table if not exists wy_meals (
+  id uuid primary key default gen_random_uuid(),
+  meal_name text not null,
+  meal_date date,
+  meal_time time,
+  venue text,
+  details text,
+  sort_order int not null default 0,
   created_at timestamptz not null default now()
 );
 
@@ -149,6 +187,9 @@ alter table wy_families enable row level security;
 alter table wy_members enable row level security;
 alter table wy_travel_details enable row level security;
 alter table wy_itinerary enable row level security;
+alter table wy_travel_routes enable row level security;
+alter table wy_travel_note enable row level security;
+alter table wy_meals enable row level security;
 alter table wy_announcements enable row level security;
 alter table wy_gallery_photos enable row level security;
 alter table wy_push_subscriptions enable row level security;
@@ -167,6 +208,18 @@ drop policy if exists wy_itinerary_read on wy_itinerary;
 create policy wy_itinerary_read on wy_itinerary for select using (true);
 revoke insert, update, delete on wy_itinerary from anon, authenticated;
 
+drop policy if exists wy_travel_routes_read on wy_travel_routes;
+create policy wy_travel_routes_read on wy_travel_routes for select using (true);
+revoke insert, update, delete on wy_travel_routes from anon, authenticated;
+
+drop policy if exists wy_travel_note_read on wy_travel_note;
+create policy wy_travel_note_read on wy_travel_note for select using (true);
+revoke insert, update, delete on wy_travel_note from anon, authenticated;
+
+drop policy if exists wy_meals_read on wy_meals;
+create policy wy_meals_read on wy_meals for select using (true);
+revoke insert, update, delete on wy_meals from anon, authenticated;
+
 drop policy if exists wy_announcements_read on wy_announcements;
 create policy wy_announcements_read on wy_announcements for select using (true);
 revoke insert, update, delete on wy_announcements from anon, authenticated;
@@ -175,7 +228,7 @@ drop policy if exists wy_contact_info_read on wy_contact_info;
 create policy wy_contact_info_read on wy_contact_info for select using (true);
 revoke insert, update, delete on wy_contact_info from anon, authenticated;
 
-grant select on wy_itinerary, wy_announcements, wy_contact_info to anon, authenticated;
+grant select on wy_itinerary, wy_announcements, wy_contact_info, wy_travel_routes, wy_travel_note, wy_meals to anon, authenticated;
 
 -- ==========================================
 -- Internal helpers (not granted to anon/authenticated directly)
@@ -234,6 +287,10 @@ begin
   select jsonb_build_object(
     'code', v_family.code,
     'family_name', v_family.family_name,
+    'stay_place_name', v_family.stay_place_name,
+    'stay_map_link', v_family.stay_map_link,
+    'stay_coordinator_name', v_family.stay_coordinator_name,
+    'stay_coordinator_phone', v_family.stay_coordinator_phone,
     'members', coalesce((
       select jsonb_agg(jsonb_build_object(
         'id', m.id,
@@ -413,6 +470,8 @@ begin
   return coalesce((
     select jsonb_agg(jsonb_build_object(
       'code', f.code, 'family_name', f.family_name,
+      'stay_place_name', f.stay_place_name, 'stay_map_link', f.stay_map_link,
+      'stay_coordinator_name', f.stay_coordinator_name, 'stay_coordinator_phone', f.stay_coordinator_phone,
       'members', coalesce((
         select jsonb_agg(jsonb_build_object(
           'id', m.id, 'name', m.name, 'room_no', m.room_no, 'sort_order', m.sort_order,
@@ -532,6 +591,45 @@ $$;
 revoke all on function wy_admin_add_member(uuid, text, text) from public;
 grant execute on function wy_admin_add_member(uuid, text, text) to anon, authenticated;
 
+-- Guest self-service version of wy_admin_add_member: no admin token, since
+-- the family code itself is the guest's credential (same trust model as
+-- wy_guest_login) - a guest can only add under the code they logged in
+-- with. member_no auto-increments under that family, same as admin's path.
+create or replace function wy_guest_add_member(p_code text, p_name text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_code text := lower(trim(p_code));
+  v_id uuid;
+  v_next_sort int;
+  v_next_member_no int;
+  v_name text := trim(p_name);
+begin
+  if not exists (select 1 from wy_families where code = v_code) then
+    raise exception 'Family code not found.';
+  end if;
+  if v_name = '' then
+    raise exception 'Name is required.';
+  end if;
+  select coalesce(max(sort_order) + 1, 0), coalesce(max(member_no) + 1, 1)
+    into v_next_sort, v_next_member_no
+    from wy_members where family_code = v_code;
+  insert into wy_members (family_code, name, sort_order, member_no)
+    values (v_code, v_name, v_next_sort, v_next_member_no)
+    returning id into v_id;
+  return jsonb_build_object(
+    'id', v_id, 'name', v_name, 'room_no', null, 'remarks', null,
+    'member_code', v_code || '/' || v_next_member_no, 'travel', null
+  );
+end;
+$$;
+revoke all on function wy_guest_add_member(text, text) from public;
+grant execute on function wy_guest_add_member(text, text) to anon, authenticated;
+grant execute on function wy_admin_add_member(uuid, text, text) to anon, authenticated;
+
 create or replace function wy_admin_delete_member(p_token uuid, p_member_id uuid)
 returns void
 language plpgsql
@@ -559,6 +657,26 @@ end;
 $$;
 revoke all on function wy_admin_set_room(uuid, uuid, text) from public;
 grant execute on function wy_admin_set_room(uuid, uuid, text) to anon, authenticated;
+
+create or replace function wy_admin_set_family_stay(
+  p_token uuid, p_code text, p_stay_place_name text, p_stay_map_link text,
+  p_stay_coordinator_name text default null, p_stay_coordinator_phone text default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform wy_assert_admin(p_token);
+  update wy_families set
+    stay_place_name = p_stay_place_name, stay_map_link = p_stay_map_link,
+    stay_coordinator_name = p_stay_coordinator_name, stay_coordinator_phone = p_stay_coordinator_phone
+  where code = lower(trim(p_code));
+end;
+$$;
+revoke all on function wy_admin_set_family_stay(uuid, text, text, text, text, text) from public;
+grant execute on function wy_admin_set_family_stay(uuid, text, text, text, text, text) to anon, authenticated;
 
 -- Pickup/drop-off assignment (vehicle no. + driver contact). Upserts an
 -- empty wy_travel_details row first so admin can assign a pickup even
@@ -610,7 +728,8 @@ grant execute on function wy_admin_set_contacts(uuid, text, text, text, text) to
 
 create or replace function wy_admin_upsert_itinerary(
   p_token uuid, p_id uuid, p_event_name text, p_event_date date,
-  p_start_time time, p_end_time time, p_venue text, p_menu text, p_dress_code text, p_sort_order int
+  p_start_time time, p_end_time time, p_venue text, p_menu text, p_dress_code text, p_sort_order int,
+  p_map_link text default null, p_coordinator_name text default null, p_coordinator_phone text default null
 )
 returns uuid
 language plpgsql
@@ -622,21 +741,22 @@ declare
 begin
   perform wy_assert_admin(p_token);
   if p_id is null then
-    insert into wy_itinerary (event_name, event_date, start_time, end_time, venue, menu, dress_code, sort_order)
-    values (p_event_name, p_event_date, p_start_time, p_end_time, p_venue, p_menu, p_dress_code, coalesce(p_sort_order, 0))
+    insert into wy_itinerary (event_name, event_date, start_time, end_time, venue, menu, dress_code, sort_order, map_link, coordinator_name, coordinator_phone)
+    values (p_event_name, p_event_date, p_start_time, p_end_time, p_venue, p_menu, p_dress_code, coalesce(p_sort_order, 0), p_map_link, p_coordinator_name, p_coordinator_phone)
     returning id into v_id;
   else
     update wy_itinerary set
       event_name = p_event_name, event_date = p_event_date, start_time = p_start_time, end_time = p_end_time,
-      venue = p_venue, menu = p_menu, dress_code = p_dress_code, sort_order = coalesce(p_sort_order, sort_order)
+      venue = p_venue, menu = p_menu, dress_code = p_dress_code, sort_order = coalesce(p_sort_order, sort_order),
+      map_link = p_map_link, coordinator_name = p_coordinator_name, coordinator_phone = p_coordinator_phone
     where id = p_id
     returning id into v_id;
   end if;
   return v_id;
 end;
 $$;
-revoke all on function wy_admin_upsert_itinerary(uuid, uuid, text, date, time, time, text, text, text, int) from public;
-grant execute on function wy_admin_upsert_itinerary(uuid, uuid, text, date, time, time, text, text, text, int) to anon, authenticated;
+revoke all on function wy_admin_upsert_itinerary(uuid, uuid, text, date, time, time, text, text, text, int, text, text, text) from public;
+grant execute on function wy_admin_upsert_itinerary(uuid, uuid, text, date, time, time, text, text, text, int, text, text, text) to anon, authenticated;
 
 create or replace function wy_admin_delete_itinerary(p_token uuid, p_id uuid)
 returns void
@@ -651,6 +771,125 @@ end;
 $$;
 revoke all on function wy_admin_delete_itinerary(uuid, uuid) from public;
 grant execute on function wy_admin_delete_itinerary(uuid, uuid) to anon, authenticated;
+
+create or replace function wy_admin_upsert_travel_route(p_token uuid, p_id uuid, p_from_place text, p_train_no text, p_sort_order int)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_id uuid;
+begin
+  perform wy_assert_admin(p_token);
+  if p_id is null then
+    insert into wy_travel_routes (from_place, train_no, sort_order)
+    values (p_from_place, p_train_no, coalesce(p_sort_order, 0))
+    returning id into v_id;
+  else
+    update wy_travel_routes set
+      from_place = p_from_place, train_no = p_train_no, sort_order = coalesce(p_sort_order, sort_order)
+    where id = p_id
+    returning id into v_id;
+  end if;
+  return v_id;
+end;
+$$;
+revoke all on function wy_admin_upsert_travel_route(uuid, uuid, text, text, int) from public;
+grant execute on function wy_admin_upsert_travel_route(uuid, uuid, text, text, int) to anon, authenticated;
+
+create or replace function wy_admin_delete_travel_route(p_token uuid, p_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform wy_assert_admin(p_token);
+  delete from wy_travel_routes where id = p_id;
+end;
+$$;
+revoke all on function wy_admin_delete_travel_route(uuid, uuid) from public;
+grant execute on function wy_admin_delete_travel_route(uuid, uuid) to anon, authenticated;
+
+create or replace function wy_admin_set_travel_note(
+  p_token uuid, p_airport_name text, p_road_time text,
+  p_railway_station_name text default null,
+  p_airport_to_venue_link text default null,
+  p_airport_to_stay_link text default null,
+  p_railway_to_venue_link text default null,
+  p_railway_to_stay_link text default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform wy_assert_admin(p_token);
+  insert into wy_travel_note (
+    id, airport_name, road_time, railway_station_name,
+    airport_to_venue_link, airport_to_stay_link, railway_to_venue_link, railway_to_stay_link
+  ) values (
+    1, p_airport_name, p_road_time, p_railway_station_name,
+    p_airport_to_venue_link, p_airport_to_stay_link, p_railway_to_venue_link, p_railway_to_stay_link
+  )
+  on conflict (id) do update set
+    airport_name = excluded.airport_name,
+    road_time = excluded.road_time,
+    railway_station_name = excluded.railway_station_name,
+    airport_to_venue_link = excluded.airport_to_venue_link,
+    airport_to_stay_link = excluded.airport_to_stay_link,
+    railway_to_venue_link = excluded.railway_to_venue_link,
+    railway_to_stay_link = excluded.railway_to_stay_link;
+end;
+$$;
+revoke all on function wy_admin_set_travel_note(uuid, text, text, text, text, text, text, text) from public;
+grant execute on function wy_admin_set_travel_note(uuid, text, text, text, text, text, text, text) to anon, authenticated;
+
+create or replace function wy_admin_upsert_meal(
+  p_token uuid, p_id uuid, p_meal_name text, p_meal_date date,
+  p_meal_time time, p_venue text, p_details text, p_sort_order int
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_id uuid;
+begin
+  perform wy_assert_admin(p_token);
+  if p_id is null then
+    insert into wy_meals (meal_name, meal_date, meal_time, venue, details, sort_order)
+    values (p_meal_name, p_meal_date, p_meal_time, p_venue, p_details, coalesce(p_sort_order, 0))
+    returning id into v_id;
+  else
+    update wy_meals set
+      meal_name = p_meal_name, meal_date = p_meal_date, meal_time = p_meal_time,
+      venue = p_venue, details = p_details, sort_order = coalesce(p_sort_order, sort_order)
+    where id = p_id
+    returning id into v_id;
+  end if;
+  return v_id;
+end;
+$$;
+revoke all on function wy_admin_upsert_meal(uuid, uuid, text, date, time, text, text, int) from public;
+grant execute on function wy_admin_upsert_meal(uuid, uuid, text, date, time, text, text, int) to anon, authenticated;
+
+create or replace function wy_admin_delete_meal(p_token uuid, p_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform wy_assert_admin(p_token);
+  delete from wy_meals where id = p_id;
+end;
+$$;
+revoke all on function wy_admin_delete_meal(uuid, uuid) from public;
+grant execute on function wy_admin_delete_meal(uuid, uuid) to anon, authenticated;
 
 create or replace function wy_admin_post_announcement(p_token uuid, p_title text, p_message text)
 returns uuid

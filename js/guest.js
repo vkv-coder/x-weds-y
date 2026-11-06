@@ -39,6 +39,19 @@ function enterApp() {
   document.getElementById('family-name-badge').textContent = currentFamily.family_name;
   registerServiceWorker();
   goTab('dashboard');
+  promptPushOnce();
+}
+
+// Browsers require an explicit user tap on the permission dialog - this
+// cannot be skipped or auto-granted. This just asks once automatically on
+// first login instead of making the guest find the button themselves.
+function promptPushOnce() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return;
+  if (localStorage.getItem('wy_push_prompted')) return;
+  localStorage.setItem('wy_push_prompted', '1');
+  if (Notification.permission === 'default') {
+    setTimeout(enableAnnouncementPush, 800);
+  }
 }
 
 async function tryAutoLogin() {
@@ -52,8 +65,9 @@ async function tryAutoLogin() {
 
 const GUEST_TABS = [
   { id: 'dashboard', label: 'Dashboard', icon: '🏠' },
+  { id: 'stay', label: 'My Stay', icon: '🏨' },
   { id: 'home', label: 'Itinerary', icon: '📅' },
-  { id: 'announcements', label: 'News', icon: '🔔' },
+  { id: 'announcements', label: 'Announcement', icon: '🔔' },
   { id: 'family', label: 'My Family', icon: '👪' },
   { id: 'gallery', label: 'Gallery', icon: '📸' }
 ];
@@ -87,6 +101,7 @@ function goTab(tabId) {
   renderNavTabs();
   const content = document.getElementById('page-content');
   if (tabId === 'dashboard') renderDashboardPage(content);
+  else if (tabId === 'stay') renderStayPage(content);
   else if (tabId === 'home') renderHomePage(content);
   else if (tabId === 'announcements') renderAnnouncementsPage(content);
   else if (tabId === 'family') renderFamilyPage(content);
@@ -97,27 +112,124 @@ function goTab(tabId) {
 async function renderHomePage(container) {
   container.innerHTML = `
     <div class="card" id="contact-card"></div>
-    <div class="card"><div class="card-title">Function Itinerary</div><div id="itinerary-list">Loading...</div></div>
+    <div class="itinerary-grid">
+      <div class="card"><div class="card-title">📅 Events</div><div id="itinerary-list">Loading...</div></div>
+      <div class="card"><div class="card-title">🍽️ Meals</div><div id="meals-list">Loading...</div></div>
+    </div>
   `;
   renderContactCard();
-  const { data, error } = await db.from('wy_itinerary').select('*').order('sort_order').order('event_date');
+
+  const { data, error } = await db.from('wy_itinerary').select('*').order('event_date').order('start_time');
   const listEl = document.getElementById('itinerary-list');
   if (error || !data || data.length === 0) {
     listEl.innerHTML = `<div class="empty-state"><p>No functions added yet. Check back soon.</p></div>`;
-    return;
-  }
-  listEl.innerHTML = data.map(ev => `
-    <div class="itinerary-item">
-      <div class="ev-name">${escapeHtml(ev.event_name)}</div>
-      <div class="ev-meta">
-        ${ev.event_date ? '📅 ' + formatDate(ev.event_date) : ''}
-        ${ev.start_time ? ' · 🕐 ' + formatTime(ev.start_time) + (ev.end_time ? ' - ' + formatTime(ev.end_time) : '') : ''}
+  } else {
+    listEl.innerHTML = data.map(ev => `
+      <div class="itinerary-item">
+        <div class="ev-name">${escapeHtml(ev.event_name)}</div>
+        <div class="ev-meta">
+          ${ev.event_date ? '📅 ' + formatDate(ev.event_date) : ''}
+          ${ev.start_time ? ' · 🕐 ' + formatTime(ev.start_time) + (ev.end_time ? ' - ' + formatTime(ev.end_time) : '') : ''}
+        </div>
+        ${ev.venue ? `<div class="ev-meta">📍 ${escapeHtml(ev.venue)}</div>` : ''}
+        ${ev.dress_code ? `<div class="ev-meta">👗 Dress code: ${escapeHtml(ev.dress_code)}</div>` : ''}
+        ${ev.map_link || ev.coordinator_phone ? `
+        <div class="ev-links">
+          ${ev.map_link ? `<a class="ev-link-btn" href="${escapeHtml(ev.map_link)}" target="_blank" rel="noopener">🗺️ View on Map</a>` : ''}
+          ${ev.coordinator_phone ? `<a class="ev-link-btn" href="tel:${escapeHtml(ev.coordinator_phone)}">📞 ${escapeHtml(ev.coordinator_name || 'Coordinator')}</a>` : ''}
+        </div>` : ''}
       </div>
-      ${ev.venue ? `<div class="ev-meta">📍 ${escapeHtml(ev.venue)}</div>` : ''}
-      ${ev.dress_code ? `<div class="ev-meta">👗 Dress code: ${escapeHtml(ev.dress_code)}</div>` : ''}
-      ${ev.menu ? `<div class="ev-meta">🍽️ Menu: ${escapeHtml(ev.menu)}</div>` : ''}
+    `).join('');
+  }
+
+  const { data: meals, error: mealsError } = await db.from('wy_meals').select('*').order('meal_date').order('meal_time');
+  const mealsEl = document.getElementById('meals-list');
+  if (mealsError || !meals || meals.length === 0) {
+    mealsEl.innerHTML = `<div class="empty-state"><p>No meals added yet.</p></div>`;
+  } else {
+    mealsEl.innerHTML = meals.map(m => `
+      <div class="itinerary-item">
+        <div class="ev-name">${escapeHtml(m.meal_name)}</div>
+        <div class="ev-meta">
+          ${m.meal_date ? '📅 ' + formatDate(m.meal_date) : ''}
+          ${m.meal_time ? ' · 🕐 ' + formatTime(m.meal_time) : ''}
+        </div>
+        ${m.venue ? `<div class="ev-meta">📍 ${escapeHtml(m.venue)}</div>` : ''}
+        ${m.details ? `<div class="ev-meta">${escapeHtml(m.details)}</div>` : ''}
+      </div>
+    `).join('');
+  }
+}
+
+// ---------- My Stay (accommodation: place, map, rooms, coordinator) ----------
+async function renderStayPage(container) {
+  const name = currentFamily.stay_place_name;
+  const link = currentFamily.stay_map_link;
+  const coordName = currentFamily.stay_coordinator_name;
+  const coordPhone = currentFamily.stay_coordinator_phone;
+  const members = currentFamily.members || [];
+
+  container.innerHTML = `
+    <div class="card" id="how-to-reach-card"></div>
+    <div class="card">
+      <div class="card-title">🏨 Your Stay</div>
+      ${name || link ? `
+        ${name ? `<div class="ev-meta">${escapeHtml(name)}</div>` : ''}
+        ${coordName || coordPhone ? `<div class="ev-meta">📞 ${escapeHtml(coordName || 'Coordinator')}${coordPhone ? ' - ' + escapeHtml(coordPhone) : ''}</div>` : ''}
+        <div class="ev-links">
+          ${link ? `<a class="ev-link-btn" href="${escapeHtml(link)}" target="_blank" rel="noopener">🗺️ View on Map</a>` : ''}
+          ${coordPhone ? `<a class="ev-link-btn" href="tel:${escapeHtml(coordPhone)}">📞 Call Coordinator</a>` : ''}
+        </div>
+      ` : `<div class="empty-state"><p>Stay details not added yet. Check back soon.</p></div>`}
+    </div>
+    <div class="card">
+      <div class="card-title">Room Assignments</div>
+      <div id="stay-rooms-list"></div>
+    </div>
+  `;
+
+  document.getElementById('stay-rooms-list').innerHTML = members.map(m => `
+    <div class="member-row">
+      <div class="member-name">${escapeHtml(m.name)} <span class="form-hint">(${escapeHtml(m.member_code)})</span></div>
+      ${m.room_no ? `<div class="room-badge">🛏️ Room ${escapeHtml(m.room_no)}</div>` : `<div class="form-hint">Room not assigned yet</div>`}
     </div>
   `).join('');
+
+  renderHowToReachCard();
+}
+
+async function renderHowToReachCard() {
+  const el = document.getElementById('how-to-reach-card');
+  if (!el) return;
+  const [{ data: note }, { data: routes }] = await Promise.all([
+    db.from('wy_travel_note').select('*').eq('id', 1).maybeSingle(),
+    db.from('wy_travel_routes').select('*').order('sort_order')
+  ]);
+  const hasNote = note && (note.airport_name || note.road_time || note.railway_station_name ||
+    note.airport_to_venue_link || note.airport_to_stay_link || note.railway_to_venue_link || note.railway_to_stay_link);
+  if (!hasNote && (!routes || routes.length === 0)) {
+    el.style.display = 'none';
+    return;
+  }
+  el.innerHTML = `
+    <div class="card-title">🚆 How to Reach</div>
+    ${note && note.airport_name ? `<div class="ev-meta">✈️ Nearest Airport: ${escapeHtml(note.airport_name)}${note.road_time ? ' · ' + escapeHtml(note.road_time) : ''}</div>` : ''}
+    ${note && (note.airport_to_venue_link || note.airport_to_stay_link) ? `
+      <div class="ev-links">
+        ${note.airport_to_venue_link ? `<a class="ev-link-btn" href="${escapeHtml(note.airport_to_venue_link)}" target="_blank" rel="noopener">🗺️ Airport → Venue</a>` : ''}
+        ${note.airport_to_stay_link ? `<a class="ev-link-btn" href="${escapeHtml(note.airport_to_stay_link)}" target="_blank" rel="noopener">🗺️ Airport → Stay</a>` : ''}
+      </div>` : ''}
+    ${note && note.railway_station_name ? `<div class="ev-meta" style="margin-top:8px;">🚉 Nearest Railway Station: ${escapeHtml(note.railway_station_name)}</div>` : ''}
+    ${note && (note.railway_to_venue_link || note.railway_to_stay_link) ? `
+      <div class="ev-links">
+        ${note.railway_to_venue_link ? `<a class="ev-link-btn" href="${escapeHtml(note.railway_to_venue_link)}" target="_blank" rel="noopener">🗺️ Station → Venue</a>` : ''}
+        ${note.railway_to_stay_link ? `<a class="ev-link-btn" href="${escapeHtml(note.railway_to_stay_link)}" target="_blank" rel="noopener">🗺️ Station → Stay</a>` : ''}
+      </div>` : ''}
+    ${routes && routes.length > 0 ? `
+      <div class="form-hint" style="margin-top:8px;margin-bottom:4px;">Train numbers by station:</div>
+      ${routes.map(r => `<div class="ev-meta">🚉 ${escapeHtml(r.from_place)}: ${escapeHtml(r.train_no || '-')}</div>`).join('')}
+    ` : ''}
+  `;
 }
 
 async function renderContactCard() {
@@ -136,7 +248,7 @@ async function renderContactCard() {
 async function renderAnnouncementsPage(container) {
   container.innerHTML = `
     <div class="card" id="push-card"></div>
-    <div class="card"><div class="card-title">Announcements</div><div id="announcements-list">Loading...</div></div>
+    <div class="card"><div class="card-title">Announcement</div><div id="announcements-list">Loading...</div></div>
   `;
   renderPushCard();
   const { data, error } = await db.from('wy_announcements').select('*').order('created_at', { ascending: false });
@@ -207,7 +319,9 @@ async function enableAnnouncementPush() {
 
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
+    navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
+      .then((reg) => reg.update().catch(() => {}))
+      .catch(() => {});
   }
 }
 
@@ -218,6 +332,14 @@ function renderFamilyPage(container) {
     <div class="card">
       <div class="card-title">${escapeHtml(currentFamily.family_name)} - Rooms &amp; Travel</div>
       <div id="members-list"></div>
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+        <label class="form-hint" style="display:block;margin-bottom:4px;">Add a family member travelling with you</label>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="new-member-name" placeholder="Full name" style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:6px;">
+          <button class="btn-primary btn-sm" onclick="addGuestMember()">+ Add Member</button>
+        </div>
+        <div class="error-msg" id="new-member-error"></div>
+      </div>
     </div>
   `;
   document.getElementById('members-list').innerHTML = members.map(m => `
@@ -237,6 +359,20 @@ function renderFamilyPage(container) {
       </div>
     </div>
   `).join('');
+}
+
+async function addGuestMember() {
+  const input = document.getElementById('new-member-name');
+  const errEl = document.getElementById('new-member-error');
+  const name = (input.value || '').trim();
+  if (errEl) errEl.textContent = '';
+  if (!name) { if (errEl) errEl.textContent = 'Please enter a name.'; return; }
+  const { data, error } = await db.rpc('wy_guest_add_member', { p_code: currentFamily.code, p_name: name });
+  if (error) { if (errEl) errEl.textContent = error.message; return; }
+  currentFamily.members = currentFamily.members || [];
+  currentFamily.members.push(data);
+  showToast('✅ Member added');
+  renderFamilyPage(document.getElementById('page-content'));
 }
 
 function renderTravelSummary(t) {

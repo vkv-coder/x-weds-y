@@ -1,5 +1,5 @@
 /* ==========================================
-   W weds Y - stylesheet
+   x-weds-y - stylesheet
    Theme: maroon / gold, wedding
    ========================================== */
 
@@ -116,6 +116,9 @@ body {
 .itinerary-item { border-left: 4px solid var(--accent); padding: 10px 14px; margin-bottom: 12px; background: #FFFDF8; border-radius: 0 var(--radius) var(--radius) 0; }
 .itinerary-item .ev-name { font-weight: 700; color: var(--primary); font-size: 15px; }
 .itinerary-item .ev-meta { font-size: 13px; color: var(--text-light); margin-top: 4px; }
+.ev-links { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.ev-link-btn { font-size: 13px; font-weight: 600; color: var(--primary); background: #F3E9DC; border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px; text-decoration: none; }
+.ev-link-btn:active { background: var(--accent-light); }
 
 .announcement-item { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin-bottom: 10px; background: #FFFDF8; }
 .announcement-item .an-title { font-weight: 700; color: var(--primary); }
@@ -153,6 +156,13 @@ body {
 
 @media (max-width: 420px) {
   .login-box { padding: 28px 20px; }
+}
+
+/* ========== ITINERARY: EVENTS + MEALS ========== */
+.itinerary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.itinerary-grid .card { margin-bottom: 0; }
+@media (max-width: 480px) {
+  .itinerary-grid { grid-template-columns: 1fr; }
 }
 
 /* ========== DASHBOARD TILES ========== */
