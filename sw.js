@@ -1,4 +1,4 @@
-const CACHE_NAME = 'x-weds-y-v2';
+const CACHE_NAME = 'x-weds-y-v3';
 const SHELL_FILES = [
   '/index.html',
   '/admin.html',
@@ -30,7 +30,7 @@ self.addEventListener('fetch', (event) => {
 
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match(event.request))
+      fetch(event.request).catch(() => caches.match(event.request).then((cached) => cached || Response.error()))
     );
     return;
   }
@@ -42,7 +42,7 @@ self.addEventListener('fetch', (event) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, resClone));
         return res;
       })
-      .catch(() => caches.match(event.request))
+      .catch(() => caches.match(event.request).then((cached) => cached || Response.error()))
   );
 });
 
