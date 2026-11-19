@@ -255,7 +255,7 @@ async function saveRoom(memberId) {
 async function renderRoomsTab(container) {
   container.innerHTML = `
     <div class="card">
-      <div class="card-title">Rooms</div>
+      <div class="section-header"><h3>Rooms</h3><button class="btn-primary btn-sm" onclick="exportRoomsCSV()">⬇️ Export to Excel</button></div>
       <div class="form-group"><input type="text" id="room-search" placeholder="Search by guest name, code (e.g. v001/2), or room no..." oninput="renderRoomGroups()"></div>
       <div id="rooms-list">Loading...</div>
     </div>
@@ -265,6 +265,8 @@ async function renderRoomsTab(container) {
   adminMembers = data || [];
   renderRoomGroups();
 }
+
+let _currentRoomMembers = [];
 
 function renderRoomGroups() {
   const listEl = document.getElementById('rooms-list');
@@ -279,6 +281,7 @@ function renderRoomGroups() {
       (m.room_no && m.room_no.toLowerCase().includes(query))
     );
   }
+  _currentRoomMembers = members;
   if (members.length === 0) {
     listEl.innerHTML = `<div class="empty-state"><p>No matching guests.</p></div>`;
     return;
@@ -293,6 +296,31 @@ function renderRoomGroups() {
   const sections = roomKeys.map(k => renderRoomGroup('🛏️ Room ' + k, groups[k]));
   if (groups['__unassigned__']) sections.push(renderRoomGroup('❓ Room Not Assigned Yet', groups['__unassigned__']));
   listEl.innerHTML = sections.join('');
+}
+
+function exportRoomsCSV() {
+  if (!_currentRoomMembers || _currentRoomMembers.length === 0) { showToast('Nothing to export.', 'error'); return; }
+  const sorted = [..._currentRoomMembers].sort((a, b) => {
+    if (!a.room_no && !b.room_no) return 0;
+    if (!a.room_no) return 1;
+    if (!b.room_no) return -1;
+    return a.room_no.localeCompare(b.room_no, undefined, { numeric: true });
+  });
+  const headers = ['Room No', 'Name', 'Member Code', 'Family', 'Remarks'];
+  const lines = [headers.map(csvEscape).join(',')];
+  for (const m of sorted) {
+    lines.push([m.room_no || 'Unassigned', m.name, m.member_code, m.family_name, m.remarks || ''].map(csvEscape).join(','));
+  }
+  const csvContent = '﻿' + lines.join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `x-weds-y-rooms.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 function renderRoomGroup(title, members) {
