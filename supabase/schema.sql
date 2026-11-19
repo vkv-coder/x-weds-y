@@ -26,7 +26,8 @@ create table if not exists wy_members (
   room_no text,
   sort_order int not null default 0,
   member_no int,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  attending_status text check (attending_status in ('attending','not_attending') or attending_status is null)
 );
 create index if not exists wy_members_family_idx on wy_members(family_code);
 
@@ -298,6 +299,7 @@ begin
         'room_no', m.room_no,
         'member_code', v_family.code || '/' || m.member_no,
         'remarks', m.remarks,
+        'attending_status', m.attending_status,
         'travel', (
           select jsonb_build_object(
             'arrival_date', t.arrival_date, 'arrival_time', t.arrival_time,
@@ -319,6 +321,47 @@ end;
 $$;
 revoke all on function wy_guest_login(text) from public;
 grant execute on function wy_guest_login(text) to anon, authenticated;
+
+create or replace function wy_admin_set_attending(p_token uuid, p_member_id uuid, p_status text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform wy_assert_admin(p_token);
+  if p_status is not null and p_status not in ('attending', 'not_attending') then
+    raise exception 'Invalid status.';
+  end if;
+  update wy_members set attending_status = p_status where id = p_member_id;
+end;
+$$;
+revoke all on function wy_admin_set_attending(uuid, uuid, text) from public;
+grant execute on function wy_admin_set_attending(uuid, uuid, text) to anon, authenticated;
+
+-- Guest self-service version: no admin token, family code is the guest's
+-- credential (same trust model as wy_guest_add_member). Scoped so a guest
+-- can only change attendance for members within their own family.
+create or replace function wy_guest_set_attending(p_code text, p_member_id uuid, p_status text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_code text := lower(trim(p_code));
+begin
+  if p_status is not null and p_status not in ('attending', 'not_attending') then
+    raise exception 'Invalid status.';
+  end if;
+  if not exists (select 1 from wy_members where id = p_member_id and family_code = v_code) then
+    raise exception 'Member not found in this family.';
+  end if;
+  update wy_members set attending_status = p_status where id = p_member_id;
+end;
+$$;
+revoke all on function wy_guest_set_attending(text, uuid, text) from public;
+grant execute on function wy_guest_set_attending(text, uuid, text) to anon, authenticated;
 
 create or replace function wy_save_travel_details(
   p_code text, p_member_id uuid,
@@ -475,7 +518,8 @@ begin
       'members', coalesce((
         select jsonb_agg(jsonb_build_object(
           'id', m.id, 'name', m.name, 'room_no', m.room_no, 'sort_order', m.sort_order,
-          'member_code', f.code || '/' || m.member_no, 'remarks', m.remarks
+          'member_code', f.code || '/' || m.member_no, 'remarks', m.remarks,
+          'attending_status', m.attending_status
         ) order by m.sort_order, m.name)
         from wy_members m where m.family_code = f.code
       ), '[]'::jsonb)
@@ -509,6 +553,7 @@ begin
       'family_code', m.family_code,
       'family_name', f.family_name,
       'remarks', m.remarks,
+      'attending_status', m.attending_status,
       'travel', (
         select jsonb_build_object(
           'arrival_date', t.arrival_date, 'arrival_time', t.arrival_time,
@@ -622,6 +667,7 @@ begin
     returning id into v_id;
   return jsonb_build_object(
     'id', v_id, 'name', v_name, 'room_no', null, 'remarks', null,
+    'attending_status', null,
     'member_code', v_code || '/' || v_next_member_no, 'travel', null
   );
 end;

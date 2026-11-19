@@ -357,6 +357,14 @@ function renderFamilyPage(container) {
     <div class="member-row">
       <div class="member-name">${escapeHtml(m.name)} <span class="form-hint">(${escapeHtml(m.member_code)})</span></div>
       ${m.room_no ? `<div class="room-badge">🛏️ Room ${escapeHtml(m.room_no)}</div>` : `<div class="form-hint">Room not assigned yet</div>`}
+      <div style="margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <label class="form-hint" style="margin:0;">Attending?</label>
+        <select onchange="setGuestAttending('${m.id}', this.value)" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;">
+          <option value="" ${!m.attending_status ? 'selected' : ''}>⏳ Pending</option>
+          <option value="attending" ${m.attending_status === 'attending' ? 'selected' : ''}>✅ Attending</option>
+          <option value="not_attending" ${m.attending_status === 'not_attending' ? 'selected' : ''}>🚫 Not Attending</option>
+        </select>
+      </div>
       <div style="margin-top:10px;">
         <button class="btn-secondary btn-sm" onclick="openTravelForm('${m.id}')">✈️ ${m.travel ? 'Edit' : 'Add'} Travel Details</button>
       </div>
@@ -370,6 +378,14 @@ function renderFamilyPage(container) {
       </div>
     </div>
   `).join('');
+}
+
+async function setGuestAttending(memberId, status) {
+  const { error } = await db.rpc('wy_guest_set_attending', { p_code: currentFamily.code, p_member_id: memberId, p_status: status || null });
+  if (error) { showToast(error.message, 'error'); return; }
+  const member = (currentFamily.members || []).find(x => x.id === memberId);
+  if (member) member.attending_status = status || null;
+  showToast('✅ Updated');
 }
 
 async function addGuestMember() {

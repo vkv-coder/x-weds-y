@@ -165,6 +165,12 @@ function renderFamiliesList() {
         <div style="margin-top:8px;">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <span style="min-width:150px;">${escapeHtml(m.name)} <span class="form-hint">(${escapeHtml(m.member_code)})</span></span>
+            ${attendingBadge(m.attending_status)}
+            <select onchange="saveAttending('${m.id}', this.value)" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;">
+              <option value="" ${!m.attending_status ? 'selected' : ''}>⏳ Pending</option>
+              <option value="attending" ${m.attending_status === 'attending' ? 'selected' : ''}>✅ Attending</option>
+              <option value="not_attending" ${m.attending_status === 'not_attending' ? 'selected' : ''}>🚫 Not Attending</option>
+            </select>
             <input type="text" placeholder="Room no." value="${escapeHtml(m.room_no || '')}" style="width:110px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;" id="room-${m.id}">
             <button class="btn-secondary btn-sm" onclick="saveRoom('${m.id}')">Save Room</button>
             <button class="btn-danger btn-sm" onclick="deleteMember('${m.id}','${f.code}')">Remove</button>
@@ -251,22 +257,59 @@ async function saveRoom(memberId) {
   showToast('✅ Room saved');
 }
 
+function attendingBadge(status) {
+  if (status === 'attending') return `<span class="room-badge" style="background:#DCEFDC;">✅ Attending</span>`;
+  if (status === 'not_attending') return `<span class="room-badge" style="background:#F3DCDC;">🚫 Not Attending</span>`;
+  return `<span class="room-badge">⏳ Pending</span>`;
+}
+
+async function saveAttending(memberId, status) {
+  const { error } = await db.rpc('wy_admin_set_attending', { p_token: adminToken(), p_member_id: memberId, p_status: status || null });
+  if (error) { showToast(error.message, 'error'); return; }
+  showToast('✅ Attendance updated');
+  loadFamilies();
+}
+
 // ---------- Rooms (room-wise list + guest-wise search) ----------
 async function renderRoomsTab(container) {
   container.innerHTML = `
     <div class="card">
       <div class="section-header"><h3>Rooms</h3><button class="btn-primary btn-sm" onclick="exportRoomsCSV()">⬇️ Export to Excel</button></div>
       <div class="form-group"><input type="text" id="room-search" placeholder="Search by guest name, code (e.g. v001/2), or room no..." oninput="renderRoomGroups()"></div>
+      <div id="rooms-attending-filter" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;"></div>
       <div id="rooms-list">Loading...</div>
     </div>
   `;
   const { data, error } = await db.rpc('wy_admin_list_members', { p_token: adminToken() });
   if (error) { document.getElementById('rooms-list').innerHTML = `<div class="error-msg">${error.message}</div>`; return; }
   adminMembers = data || [];
+  _roomsAttendingFilter = 'all';
+  renderRoomsAttendingFilter();
   renderRoomGroups();
 }
 
 let _currentRoomMembers = [];
+let _roomsAttendingFilter = 'all';
+
+function renderRoomsAttendingFilter() {
+  const el = document.getElementById('rooms-attending-filter');
+  if (!el) return;
+  const options = [
+    { key: 'all', label: 'All' },
+    { key: 'pending', label: '⏳ Pending' },
+    { key: 'attending', label: '✅ Attending' },
+    { key: 'not_attending', label: '🚫 Not Attending' }
+  ];
+  el.innerHTML = options.map(o =>
+    `<button class="btn-sm ${_roomsAttendingFilter === o.key ? 'btn-primary' : 'btn-secondary'}" onclick="setRoomsAttendingFilter('${o.key}')">${o.label}</button>`
+  ).join('');
+}
+
+function setRoomsAttendingFilter(key) {
+  _roomsAttendingFilter = key;
+  renderRoomsAttendingFilter();
+  renderRoomGroups();
+}
 
 function renderRoomGroups() {
   const listEl = document.getElementById('rooms-list');
@@ -280,6 +323,9 @@ function renderRoomGroups() {
       m.family_name.toLowerCase().includes(query) ||
       (m.room_no && m.room_no.toLowerCase().includes(query))
     );
+  }
+  if (_roomsAttendingFilter !== 'all') {
+    members = members.filter(m => (m.attending_status || 'pending') === _roomsAttendingFilter);
   }
   _currentRoomMembers = members;
   if (members.length === 0) {
@@ -306,10 +352,11 @@ function exportRoomsCSV() {
     if (!b.room_no) return -1;
     return a.room_no.localeCompare(b.room_no, undefined, { numeric: true });
   });
-  const headers = ['Room No', 'Name', 'Member Code', 'Family', 'Remarks'];
+  const headers = ['Room No', 'Name', 'Member Code', 'Family', 'Attending', 'Remarks'];
   const lines = [headers.map(csvEscape).join(',')];
   for (const m of sorted) {
-    lines.push([m.room_no || 'Unassigned', m.name, m.member_code, m.family_name, m.remarks || ''].map(csvEscape).join(','));
+    const status = m.attending_status === 'attending' ? 'Attending' : m.attending_status === 'not_attending' ? 'Not Attending' : 'Pending';
+    lines.push([m.room_no || 'Unassigned', m.name, m.member_code, m.family_name, status, m.remarks || ''].map(csvEscape).join(','));
   }
   const csvContent = '﻿' + lines.join('\r\n');
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -329,7 +376,7 @@ function renderRoomGroup(title, members) {
       <div class="member-name">${escapeHtml(title)}</div>
       ${members.map(m => `
         <div style="margin-top:6px;">
-          <div class="form-hint">${escapeHtml(m.name)} (${escapeHtml(m.member_code)}) - ${escapeHtml(m.family_name)}${m.remarks ? ' · 📝 ' + escapeHtml(m.remarks) : ''}</div>
+          <div class="form-hint" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">${escapeHtml(m.name)} (${escapeHtml(m.member_code)}) - ${escapeHtml(m.family_name)}${m.remarks ? ' · 📝 ' + escapeHtml(m.remarks) : ''} ${attendingBadge(m.attending_status)}</div>
           ${m.travel ? `<div class="form-hint" style="color:var(--text-light);">${compactTravelLine(m.travel)}</div>` : ''}
         </div>
       `).join('')}
