@@ -85,10 +85,11 @@ function renderDashboardPage(container) {
     <div class="card">
       <div class="card-title">🏨 Your Stay</div>
       ${currentFamily.stay_place_name ? `<div class="ev-meta">${escapeHtml(currentFamily.stay_place_name)}</div>` : ''}
-      <div class="ev-links">
-        ${currentFamily.stay_map_link ? `<a class="ev-link-btn" href="${escapeHtml(currentFamily.stay_map_link)}" target="_blank" rel="noopener">🗺️ View on Map</a>` : ''}
-        ${currentFamily.stay_coordinator_phone ? `<a class="ev-link-btn" href="tel:${escapeHtml(currentFamily.stay_coordinator_phone)}">📞 Call Coordinator</a>` : ''}
-      </div>
+      ${currentFamily.stay_coordinator_phone ? `<div class="ev-meta">📞 ${escapeHtml(currentFamily.stay_coordinator_name || 'Coordinator')}: <a href="tel:${escapeHtml(currentFamily.stay_coordinator_phone)}">${escapeHtml(currentFamily.stay_coordinator_phone)}</a></div>` : ''}
+      ${currentFamily.stay_map_link ? `
+      <div class="form-hint" style="margin-top:8px;">Please reach here</div>
+      <div class="ev-links"><a class="ev-link-btn" href="${escapeHtml(currentFamily.stay_map_link)}" target="_blank" rel="noopener">🗺️ View on Map</a></div>
+      ` : ''}
     </div>
     ` : ''}
     <div class="card" id="contact-card"></div>
@@ -185,11 +186,11 @@ async function renderStayPage(container) {
       <div class="card-title">🏨 Your Stay</div>
       ${name || link ? `
         ${name ? `<div class="ev-meta">${escapeHtml(name)}</div>` : ''}
-        ${coordName || coordPhone ? `<div class="ev-meta">📞 ${escapeHtml(coordName || 'Coordinator')}${coordPhone ? ' - ' + escapeHtml(coordPhone) : ''}</div>` : ''}
-        <div class="ev-links">
-          ${link ? `<a class="ev-link-btn" href="${escapeHtml(link)}" target="_blank" rel="noopener">🗺️ View on Map</a>` : ''}
-          ${coordPhone ? `<a class="ev-link-btn" href="tel:${escapeHtml(coordPhone)}">📞 Call Coordinator</a>` : ''}
-        </div>
+        ${coordPhone ? `<div class="ev-meta">📞 ${escapeHtml(coordName || 'Coordinator')}: <a href="tel:${escapeHtml(coordPhone)}">${escapeHtml(coordPhone)}</a></div>` : ''}
+        ${link ? `
+        <div class="form-hint" style="margin-top:8px;">Please reach here</div>
+        <div class="ev-links"><a class="ev-link-btn" href="${escapeHtml(link)}" target="_blank" rel="noopener">🗺️ View on Map</a></div>
+        ` : ''}
       ` : `<div class="empty-state"><p>Stay details not added yet. Check back soon.</p></div>`}
     </div>
     <div class="card">
