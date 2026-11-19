@@ -81,6 +81,16 @@ function renderNavTabs() {
 
 function renderDashboardPage(container) {
   container.innerHTML = `
+    ${(currentFamily.stay_place_name || currentFamily.stay_map_link) ? `
+    <div class="card">
+      <div class="card-title">🏨 Your Stay</div>
+      ${currentFamily.stay_place_name ? `<div class="ev-meta">${escapeHtml(currentFamily.stay_place_name)}</div>` : ''}
+      <div class="ev-links">
+        ${currentFamily.stay_map_link ? `<a class="ev-link-btn" href="${escapeHtml(currentFamily.stay_map_link)}" target="_blank" rel="noopener">🗺️ View on Map</a>` : ''}
+        ${currentFamily.stay_coordinator_phone ? `<a class="ev-link-btn" href="tel:${escapeHtml(currentFamily.stay_coordinator_phone)}">📞 Call Coordinator</a>` : ''}
+      </div>
+    </div>
+    ` : ''}
     <div class="card" id="contact-card"></div>
     <div class="card">
       <div class="card-title">Dashboard</div>
